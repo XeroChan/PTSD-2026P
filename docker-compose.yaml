@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  # BROKER WIADOMOŚCI (KAFKA + ZOOKEEPER)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    container_name: anomaly-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - anomaly-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    container_name: anomaly-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # Rejestracja dwóch listenerów: dla komunikacji wewnątrz sieci Dockera i z hosta (dla skryptów Python)
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - anomaly-network
+
+  # BAZA DANYCH NOSQL
+  mongodb:
+    image: mongo:6.0
+    container_name: anomaly-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: anomaly_db
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - anomaly-network
+
+  # PRZETWARZANIE STRUMIENIOWE (APACHE FLINK)
+  jobmanager:
+    image: flink:1.17-scala_2.12
+    container_name: flink-jobmanager
+    ports:
+      - "8081:8081" # Panel Web UI Flinka
+    command: jobmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+    networks:
+      - anomaly-network
+
+  taskmanager:
+    image: flink:1.17-scala_2.12
+    container_name: flink-taskmanager
+    depends_on:
+      - jobmanager
+    command: taskmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: 2 # Liczba równoległych wątków na TaskManagerze
+    networks:
+      - anomaly-network
+
+volumes:
+  mongo_data:
+    driver: local
+
+networks:
+  anomaly-network:
+    driver: bridge
