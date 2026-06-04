@@ -2,3 +2,4 @@ confluent-kafka
 faker
 apache-flink
 streamlit
+pymongo
