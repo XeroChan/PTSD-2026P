@@ -2,10 +2,8 @@
 
 ## Must-have
 
-- [ ] Domknąć generator transakcji w producer.py tak, żeby spełniał wymagania danych: 10 000 kart, wielu kart na jednego użytkownika, JSON, kilka typów anomalii. 
-<!-- TODO: Domknąć generator transakcji dla spełnienia wymagań projektu -->
-- [ ] Przerobić flink-job.py na realny detektor, a nie prototyp z `speed = 1500`; trzeba liczyć metryki i wykrywać anomalie statystycznie.
-<!-- TODO: Przerobić flink job na realny detektor -->
+- [x] Domknąć generator transakcji w producer.py tak, żeby spełniał wymagania danych: 10 000 kart, wielu kart na jednego użytkownika, JSON, kilka typów anomalii.
+- [x] Przerobić flink-job.py na realny detektor, a nie prototyp z `speed = 1500`; trzeba liczyć metryki i wykrywać anomalie statystycznie.
 - [ ] Ujednolicić konfigurację Kafki dla hosta i kontenerów, najlepiej przez zmienne środowiskowe, bo teraz producer.py i app.py łączą się z `localhost:9092`, a flink-job.py z `kafka:29092`.
 <!-- TODO: Ujednolicić konfigurację Kafki dla hosta i kontenerów.
 Najlepiej przez zmienne środowiskowe -->
@@ -14,8 +12,7 @@ Najlepiej przez zmienne środowiskowe -->
 
 ## Should-have
 
-- [ ] Dodać pamięć lokalną dla częstych lokalizacji w detektorze, zgodnie z wymaganiami projektu.
-<!-- TODO: Dodać pamięć lokalną dla częstych lokalizacji w detektorze -->
+- [x] Dodać pamięć lokalną dla częstych lokalizacji w detektorze, zgodnie z wymaganiami projektu.
 - [ ] Podłączyć MongoDB do realnego zapisu alarmów albo statystyk, bo kontener istnieje w docker-compose.yaml, ale kod go nie używa.
 <!-- TODO: Podłączyć MongoDB do realnego zapisu alarmów albo statystyk -->
 - [ ] Dodać obsługę co najmniej jeszcze jednej anomalii poza skokiem kwoty, np. gwałtowna zmiana lokalizacji i zbyt wysoka częstotliwość transakcji.
