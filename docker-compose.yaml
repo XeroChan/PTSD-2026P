@@ -1,19 +1,15 @@
 version: '3.8'
 
 services:
-  # BROKER WIADOMOŚCI (KAFKA + ZOOKEEPER)
   zookeeper:
-    image: confluentinc/cp-zookeeper:7.3.0
-    container_name: anomaly-zookeeper
+    image: confluentinc/cp-zookeeper:7.4.0
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
     networks:
-      - anomaly-network
+      - anomaly_net
 
   kafka:
-    image: confluentinc/cp-kafka:7.3.0
-    container_name: anomaly-kafka
+    image: confluentinc/cp-kafka:7.4.0
     depends_on:
       - zookeeper
     ports:
@@ -21,59 +17,68 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      # Rejestracja dwóch listenerów: dla komunikacji wewnątrz sieci Dockera i z hosta (dla skryptów Python)
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     networks:
-      - anomaly-network
+      - anomaly_net
 
-  # BAZA DANYCH NOSQL
-  mongodb:
-    image: mongo:6.0
-    container_name: anomaly-mongodb
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_DATABASE: anomaly_db
-    volumes:
-      - mongo_data:/data/db
-    networks:
-      - anomaly-network
-
-  # PRZETWARZANIE STRUMIENIOWE (APACHE FLINK)
   jobmanager:
-    image: flink:1.17-scala_2.12
-    container_name: flink-jobmanager
+    build:
+      context: .
+      dockerfile: Dockerfile.flink
     ports:
-      - "8081:8081" # Panel Web UI Flinka
+      - "8081:8081"
     command: jobmanager
     environment:
-      - |
-        FLINK_PROPERTIES=
-        jobmanager.rpc.address: jobmanager
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
     networks:
-      - anomaly-network
+      - anomaly_net
 
   taskmanager:
-    image: flink:1.17-scala_2.12
-    container_name: flink-taskmanager
+    build:
+      context: .
+      dockerfile: Dockerfile.flink
     depends_on:
       - jobmanager
     command: taskmanager
     environment:
-      - |
-        FLINK_PROPERTIES=
-        jobmanager.rpc.address: jobmanager
-        taskmanager.numberOfTaskSlots: 2 # Liczba równoległych wątków na TaskManagerze
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager
+      - TASK_MANAGER_NUMBER_OF_TASK_SLOTS=4
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
     networks:
-      - anomaly-network
+      - anomaly_net
 
-volumes:
-  mongo_data:
-    driver: local
+  simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    depends_on:
+      - kafka
+    command: python -m src.simulator.runner
+    networks:
+      - anomaly_net
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    ports:
+      - "8501:8501"
+    depends_on:
+      - kafka
+    environment:
+      - KAFKA_BROKER=kafka:29092
+      - PYTHONPATH=/app
+    command: streamlit run src/ui/dashboard.py
+    networks:
+      - anomaly_net
 
 networks:
-  anomaly-network:
+  anomaly_net:
     driver: bridge

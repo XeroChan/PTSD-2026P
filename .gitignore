@@ -1,1 +1,9 @@
-/venv
+# Python - pliki prekompilowane i cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Środowisko wirtualne (Virtualenv)
+venv/
+env/
+.venv/
