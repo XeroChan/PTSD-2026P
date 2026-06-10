@@ -1,14 +1,14 @@
 import time
 import random
 from src.config.settings import KAFKA_BROKER, TOPIC_RAW
-from src.simulator.card_repository import CardRepository
+from src.simulator.card_generator import CardGenerator
 from src.simulator.transaction_factory import TransactionFactory
 from src.infrastructure.kafka_publisher import KafkaPublisher
 from src.domain.transaction import Transaction
 
 class SimulatorRunner:
     def __init__(self):
-        self.repository = CardRepository(number_of_cards=10000, number_of_users=5000)
+        self.generator = CardGenerator(number_of_cards=10000, number_of_users=5000)
         self.factory = TransactionFactory()
         self.publisher = KafkaPublisher(bootstrap_servers=KAFKA_BROKER)
 
@@ -16,7 +16,7 @@ class SimulatorRunner:
         print("Starting transaction stream...")
         try:
             while True:
-                card = self.repository.get_random_card()
+                card = self.generator.get_random_card()
                 transaction = self._generate_random_transaction(card)
                 
                 self.publisher.publish(

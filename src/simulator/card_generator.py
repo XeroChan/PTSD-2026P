@@ -4,14 +4,14 @@ from faker import Faker
 from src.domain.location import Location
 from src.domain.card import Card
 
-class CardRepository:
+class CardGenerator:
     def __init__(self, number_of_cards: int = 10000, number_of_users: int = 5000):
         self.faker = Faker()
         self.users = [self.faker.uuid4() for _ in range(number_of_users)]
         self.cards: List[Card] = self._generate_cards(number_of_cards)
 
     def _generate_cards(self, count: int) -> List[Card]:
-        print(f"Generating database of {count} cards...")
+        print(f"Generating {count} cards...")
         generated = []
         for i in range(count):
             random_user_id = random.choice(self.users)
