@@ -90,11 +90,17 @@ services:
     command: >
       bash -c "
         echo 'Waiting for Flink JobManager to be ready...'
-        while ! curl -s http://jobmanager:8081/overview | grep -q '\"taskmanagers\":1'; do
-          sleep 2;
-        done;
+        python -c \"import urllib.request, time; \
+        while True: \
+          try: \
+            urllib.request.urlopen('http://jobmanager:8081/overview'); \
+            break; \
+          except: \
+            time.sleep(2)\"
         echo 'Submitting Flink Job...'
         flink run -d -py /app/src/flink_pipeline/job.py
+        # Keep container alive if needed or let it exit
+        echo 'Job submitted.'
       "
     volumes:
       - .:/app
