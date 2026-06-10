@@ -3,3 +3,4 @@ faker
 apache-flink
 streamlit
 pymongo
+streamz
