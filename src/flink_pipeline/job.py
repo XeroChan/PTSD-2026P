@@ -20,6 +20,12 @@ from src.flink_pipeline.detectors.amount_stats_detector import AmountStatsAnomal
 def run_job():
     env = StreamExecutionEnvironment.get_execution_environment()
 
+    # Przetwarzanie równoległe: detektory rozkładają się na sloty TaskManagera.
+    # Po key_by(card_id) Flink dzieli karty między subtaski, więc detektory
+    # stanowe (z-score, lokalizacja) liczą się naprawdę współbieżnie.
+    # Sink celowo zostaje przy równoległości 1 - dla uporządkowanego wyjścia.
+    env.set_parallelism(4)
+
     jars = [
         "/app/jars/flink-connector-kafka-1.17.0.jar",
         "/app/jars/kafka-clients-3.2.3.jar"
@@ -39,7 +45,7 @@ def run_job():
         .set_bootstrap_servers(KAFKA_BROKER) \
         .set_topics(TOPIC_RAW) \
         .set_group_id(FLINK_GROUP_ID) \
-        .set_starting_offsets(KafkaOffsetsInitializer.earliest()) \
+        .set_starting_offsets(KafkaOffsetsInitializer.latest()) \
         .set_value_only_deserializer(SimpleStringSchema()) \
         .build()
     
@@ -49,19 +55,21 @@ def run_job():
         "Kafka Raw Transactions"
     )
 
+    keyed_stream = raw_stream.key_by(lambda x: json.loads(x)['card_id'])
+
     limit_alarms = raw_stream \
         .process(LimitAnomalyDetector(), output_type=Types.STRING()) \
         .name("Limit Anomaly Detector")
 
-    location_alarms = raw_stream \
-        .key_by(lambda x: json.loads(x)['card_id']) \
+    location_alarms = keyed_stream \
         .process(LocationAnomalyDetector(), output_type=Types.STRING()) \
         .name("Location Anomaly Detector")
 
-    amount_stats_alarms = raw_stream \
-        .key_by(lambda x: json.loads(x)['card_id']) \
+    amount_stats_alarms = keyed_stream \
         .process(AmountStatsAnomalyDetector(), output_type=Types.STRING()) \
         .name("Amount Z-Score Detector")
+
+    all_alarms = limit_alarms.union(location_alarms, amount_stats_alarms)
 
     kafka_sink = KafkaSink.builder() \
         .set_bootstrap_servers(KAFKA_BROKER) \
@@ -73,9 +81,7 @@ def run_job():
         ) \
         .build()
 
-    limit_alarms.sink_to(kafka_sink).name("Kafka Sink - Limit Alarms")
-    location_alarms.sink_to(kafka_sink).name("Kafka Sink - Location Alarms")
-    amount_stats_alarms.sink_to(kafka_sink).name("Kafka Sink - Amount Stats Alarms")
+    all_alarms.sink_to(kafka_sink).name("Kafka Sink - Alarms").set_parallelism(1)
 
     env.execute("Fraud_Detection_Job")
 

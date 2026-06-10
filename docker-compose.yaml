@@ -86,9 +86,11 @@ services:
       - "8501:8501"
     depends_on:
       - kafka
+      - mongo
     environment:
       - KAFKA_BROKER=kafka:29092
       - PYTHONPATH=/app
+      - MONGO_URI=mongodb://mongo:27017
     command: streamlit run src/ui/dashboard.py
     networks:
       - anomaly_net

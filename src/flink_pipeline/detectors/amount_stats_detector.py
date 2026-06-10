@@ -5,7 +5,9 @@ from pyflink.datastream.functions import KeyedProcessFunction, RuntimeContext
 from pyflink.datastream.state import ValueStateDescriptor
 from src.domain.alarm import Alarm
 
-# Ile transakcji karty musimy zaobserwować, zanim zaczniemy oceniać (rozgrzewka).
+# Ile ostatnich kwot karty trzymamy w oknie.
+WINDOW_SIZE = 30
+# Ile kwot w oknie potrzeba, zanim zaczniemy oceniać (rozgrzewka).
 MIN_SAMPLES = 12
 # Ile odchyleń standardowych od średniej traktujemy jako anomalię.
 Z_SCORE_THRESHOLD = 4.0
@@ -13,37 +15,34 @@ Z_SCORE_THRESHOLD = 4.0
 
 class AmountStatsAnomalyDetector(KeyedProcessFunction):
     """
-    Wykrywa nagłą zmianę wartości transakcji metodą statystyczną (z-score).
+    Wykrywa nagłą zmianę wartości transakcji metodą z-score liczonego z OKNA
+    ostatnich N transakcji karty (sliding window).
 
-    Dla każdej karty utrzymuje w pamięci Flinka (state) bieżącą liczność,
-    średnią oraz sumę kwadratów odchyleń (M2) i aktualizuje je przyrostowo
-    algorytmem Welforda - bez przechowywania całej historii kwot.
+    Dla każdej karty trzymamy w stanie listę ostatnich WINDOW_SIZE kwot. Średnia
+    i odchylenie standardowe liczone są z tego okna, więc detektor naturalnie
+    "zapomina" stare dane (okno się przesuwa) i nie traci czułości w czasie.
+    Intuicja jest prosta: "jak bardzo ta kwota odstaje od ostatnich N transakcji
+    tej karty".
     """
 
     def __init__(self):
-        self.stats_state = None
+        self.window_state = None
 
     def open(self, runtime_context: RuntimeContext):
-        descriptor = ValueStateDescriptor("amount_stats_state", Types.STRING())
-        self.stats_state = runtime_context.get_state(descriptor)
+        descriptor = ValueStateDescriptor("amount_window_state", Types.STRING())
+        self.window_state = runtime_context.get_state(descriptor)
 
     def process_element(self, value: str, ctx: 'KeyedProcessFunction.Context'):
         tx = json.loads(value)
         amount = float(tx.get('amount', 0.0))
 
-        state_str = self.stats_state.value() if self.stats_state is not None else None
-        if state_str:
-            stats = json.loads(state_str)
-        else:
-            stats = {"count": 0, "mean": 0.0, "m2": 0.0}
+        state_str = self.window_state.value()
+        window = json.loads(state_str) if state_str else []
 
-        count = stats["count"]
-        mean = stats["mean"]
-        m2 = stats["m2"]
-
-        # Ocena PRZED aktualizacją - porównujemy nową kwotę do dotychczasowego rozkładu.
-        if count >= MIN_SAMPLES:
-            variance = m2 / (count - 1)
+        # Ocena PRZED dodaniem bieżącej kwoty - porównujemy ją do ostatnich N.
+        if len(window) >= MIN_SAMPLES:
+            mean = sum(window) / len(window)
+            variance = sum((x - mean) ** 2 for x in window) / (len(window) - 1)
             std = math.sqrt(variance)
             if std > 0:
                 z = (amount - mean) / std
@@ -54,20 +53,16 @@ class AmountStatsAnomalyDetector(KeyedProcessFunction):
                         timestamp_iso=tx.get('timestamp'),
                         details={
                             'amount': round(amount, 2),
-                            'historical_mean': round(mean, 2),
-                            'historical_std': round(std, 2),
+                            'window_mean': round(mean, 2),
+                            'window_std': round(std, 2),
                             'z_score': round(z, 2),
-                            'samples': count,
+                            'window_size': len(window),
                         }
                     )
                     yield json.dumps(alarm.to_dict())
 
-        # Aktualizacja statystyk (Welford) PO ocenie.
-        count += 1
-        delta = amount - mean
-        mean += delta / count
-        delta2 = amount - mean
-        m2 += delta * delta2
-
-        if self.stats_state is not None:
-            self.stats_state.update(json.dumps({"count": count, "mean": mean, "m2": m2}))
+        # Aktualizacja okna: dodaj bieżącą kwotę i utnij do WINDOW_SIZE ostatnich.
+        window.append(amount)
+        if len(window) > WINDOW_SIZE:
+            window = window[-WINDOW_SIZE:]
+        self.window_state.update(json.dumps(window))
