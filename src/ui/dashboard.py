@@ -25,6 +25,38 @@ def render_alarm_table(alarms_list, header, empty_msg):
     else:
         st.info(empty_msg)
 
+consumer = Consumer({
+    'bootstrap.servers': KAFKA_BROKER,
+    'group.id': 'dashboard_ui',
+    'auto.offset.reset': 'latest'
+})
+consumer.subscribe([TOPIC_ALARMS, TOPIC_RAW])
+
+if 'raw_data' not in st.session_state:
+    st.session_state.raw_data = []
+
+if 'raw_stats' not in st.session_state:
+    st.session_state.raw_stats = {
+        'unique_cards': set(),
+        'count': 0,
+        'total_amount': 0.0,
+        'anomaly_count': 0,
+        'normal_count': 0
+    }
+
+agg = Aggregates()
+source = build_stream(agg)
+mongo = MongoRepository(MONGO_URI, MONGO_DB)
+
+last_db_refresh = 0
+DB_REFRESH_SECONDS = 5
+db_history = []
+db_counts = {}
+force_update = True
+
+placeholder_alarms = st.empty()
+placeholder_raw = st.empty()
+
 while True:
     msg = consumer.poll(timeout=0.5)
     has_new_data = False
