@@ -15,6 +15,7 @@ from pyflink.datastream.connectors.kafka import (
 from src.config.settings import KAFKA_BROKER, TOPIC_RAW, TOPIC_ALARMS, FLINK_GROUP_ID
 from src.flink_pipeline.detectors.limit_detector import LimitAnomalyDetector
 from src.flink_pipeline.detectors.location_detector import LocationAnomalyDetector
+from src.flink_pipeline.detectors.amount_stats_detector import AmountStatsAnomalyDetector
 
 def run_job():
     env = StreamExecutionEnvironment.get_execution_environment()
@@ -57,6 +58,11 @@ def run_job():
         .process(LocationAnomalyDetector(), output_type=Types.STRING()) \
         .name("Location Anomaly Detector")
 
+    amount_stats_alarms = raw_stream \
+        .key_by(lambda x: json.loads(x)['card_id']) \
+        .process(AmountStatsAnomalyDetector(), output_type=Types.STRING()) \
+        .name("Amount Z-Score Detector")
+
     kafka_sink = KafkaSink.builder() \
         .set_bootstrap_servers(KAFKA_BROKER) \
         .set_record_serializer(
@@ -69,6 +75,7 @@ def run_job():
 
     limit_alarms.sink_to(kafka_sink).name("Kafka Sink - Limit Alarms")
     location_alarms.sink_to(kafka_sink).name("Kafka Sink - Location Alarms")
+    amount_stats_alarms.sink_to(kafka_sink).name("Kafka Sink - Amount Stats Alarms")
 
     env.execute("Fraud_Detection_Job")
 

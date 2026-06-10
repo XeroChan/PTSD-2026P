@@ -28,8 +28,18 @@ class TransactionFactory:
         """Simulates a transaction exceeding the spending limit."""
         lat = card.home_location.latitude + random.uniform(-0.1, 0.1)
         lon = card.home_location.longitude + random.uniform(-0.1, 0.1)
-        
+
         amount = round(card.limit * random.uniform(1.1, 2.0), 2)
+        return self._build_transaction(card, Location(lat, lon), amount)
+
+    def create_amount_spike_anomaly(self, card: Card) -> Transaction:
+        """Nagły, duży skok kwoty - ale wciąż PONIŻEJ limitu.
+        Detektor limitu tego nie wykryje; detektor statystyczny (z-score) tak,
+        bo kwota mocno odstaje od typowych transakcji tej karty."""
+        lat = card.home_location.latitude + random.uniform(-0.1, 0.1)
+        lon = card.home_location.longitude + random.uniform(-0.1, 0.1)
+
+        amount = round(card.limit * random.uniform(0.5, 0.95), 2)
         return self._build_transaction(card, Location(lat, lon), amount)
 
     def _build_transaction(self, card: Card, location: Location, amount: float) -> Transaction:

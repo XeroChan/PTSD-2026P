@@ -37,11 +37,15 @@ class SimulatorRunner:
         if chance < 0.01:
             print(f"Anomaly [LOCATION] generated for {card.id}")
             return self.factory.create_location_anomaly(card)
-        
+
         if chance < 0.02:
-            print(f"Anomaly [AMOUNT] generated for {card.id}")
+            print(f"Anomaly [AMOUNT > LIMIT] generated for {card.id}")
             return self.factory.create_amount_anomaly(card)
-            
+
+        if chance < 0.03:
+            print(f"Anomaly [AMOUNT SPIKE] generated for {card.id}")
+            return self.factory.create_amount_spike_anomaly(card)
+
         return self.factory.create_normal_transaction(card)
 
 if __name__ == "__main__":
