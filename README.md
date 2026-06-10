@@ -5,6 +5,7 @@ Projekt implementuje system wykrywania anomalii i oszustw w transakcjach kartowy
 ## Architektura i Uruchamianie
 
 Wszystkie komponenty systemu zostały spakowane do kontenerów Docker, co ułatwia i ujednolica uruchomienie.
+Obraz dla usług Pythonowych jest lżejszy niż obraz Flinka, bo ciężkie zależności PyFlink są instalowane tylko tam, gdzie są potrzebne.
 
 ### Co startuje w Dockerze?
 
@@ -24,6 +25,8 @@ Po uruchomieniu `docker-compose up -d`, startują następujące usługi:
 docker compose build
 docker compose up -d
 ```
+
+Pierwszy build nadal może potrwać, bo Docker pobiera obrazy bazowe i buduje osobno warstwę Flinka, ale kolejne uruchomienia powinny być wyraźnie szybsze.
 
 Job Flinka zostanie zgłoszony automatycznie!
 
