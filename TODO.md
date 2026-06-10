@@ -5,8 +5,7 @@
 - [x] Domknąć generator transakcji tak, żeby spełniał wymagania danych: 10 000 kart, wielu kart na jednego użytkownika, JSON, kilka typów anomalii. (`src/simulator/` — card_generator, transaction_factory, runner)
 - [x] Przerobić job Flinka na realny detektor (a nie prototyp), liczący metryki i wykrywający anomalie statystycznie. (`src/flink_pipeline/detectors/`)
 - [x] Ujednolicić konfigurację Kafki dla hosta i kontenerów przez zmienne środowiskowe (`KAFKA_BROKER`). (`src/config/settings.py`, `docker-compose.yaml`)
-- [ ] Dodać osobnego testowego konsumenta dla `raw_transactions` (komponent c ze spec): walidacja generowanych danych — liczba unikalnych kart (10 000), rozkład kwot/lokalizacji, podział normalne vs anomalie — z wizualizacją. Dashboard pokazuje dziś tylko `alarms`.
-<!-- TODO: To jest właściwe miejsce, żeby pokazać pełne 10 000 kart ( alarmy stanowe skupiają się na gorących kartach ). -->
+- [x] Dodać osobnego testowego konsumenta dla `raw_transactions` (komponent c ze spec): walidacja generowanych danych — liczba unikalnych kart (10 000), rozkład kwot/lokalizacji, podział normalne vs anomalie — z wizualizacją. Dashboard pokazuje dziś tylko `alarms`.
 
 ## Should-have
 

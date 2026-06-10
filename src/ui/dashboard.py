@@ -4,7 +4,7 @@ import json
 import time
 from confluent_kafka import Consumer
 from src.config.settings import (
-    KAFKA_BROKER, TOPIC_ALARMS,
+    KAFKA_BROKER, TOPIC_ALARMS, TOPIC_RAW,
     MONGO_URI, MONGO_DB, MONGO_COLLECTION_ALARMS,
 )
 from src.ui.aggregations import Aggregates, build_stream
@@ -16,7 +16,16 @@ st.markdown("Real-time anomaly monitoring system. Data source: **Apache Flink**,
 
 if 'alarms_data' not in st.session_state:
     st.session_state.alarms_data = []
-
+if 'raw_stats' not in st.session_state:
+    st.session_state.raw_stats = {
+        'unique_cards': set(),
+        'normal_count': 0,
+        'anomaly_count': 0,
+        'total_amount': 0.0,
+        'count': 0
+    }
+if 'raw_data' not in st.session_state:
+    st.session_state.raw_data = []
 
 @st.cache_resource
 def get_kafka_consumer():
@@ -31,7 +40,7 @@ def get_kafka_consumer():
         try:
             print(f"Attempting to connect to Kafka ({KAFKA_BROKER})... attempt {i+1}")
             consumer = Consumer(conf)
-            consumer.subscribe([TOPIC_ALARMS])
+            consumer.subscribe([TOPIC_ALARMS, TOPIC_RAW])
             return consumer
         except Exception as e:
             print(f"Failed to connect (yet): {e}")
@@ -61,7 +70,10 @@ except Exception as e:
 source, agg = get_pipeline()
 mongo = get_mongo()
 
-placeholder = st.empty()
+tab_alarms, tab_raw = st.tabs(["🚨 Alarms", "📊 Raw Transactions"])
+
+placeholder_alarms = tab_alarms.empty()
+placeholder_raw = tab_raw.empty()
 force_update = True
 
 DB_REFRESH_SECONDS = 3
@@ -82,6 +94,7 @@ def render_alarm_table(df, alarm_type, header, empty_msg):
 while True:
     msg = consumer.poll(timeout=0.5)
     has_new_data = False
+    has_new_raw_data = False
 
     if msg is None:
         pass
@@ -92,11 +105,28 @@ while True:
             payload = msg.value()
             if payload is not None:
                 value = json.loads(payload.decode('utf-8'))
-                st.session_state.alarms_data.insert(0, value)
-                st.session_state.alarms_data = st.session_state.alarms_data[:100]
-                # potok streamz: przeliczenie metryk bez petli agregujacej
-                source.emit(value)
-                has_new_data = True
+                topic = msg.topic()
+                
+                if topic == TOPIC_ALARMS:
+                    st.session_state.alarms_data.insert(0, value)
+                    st.session_state.alarms_data = st.session_state.alarms_data[:100]
+                    # potok streamz: przeliczenie metryk bez petli agregujacej
+                    source.emit(value)
+                    has_new_data = True
+                elif topic == TOPIC_RAW:
+                    st.session_state.raw_data.insert(0, value)
+                    st.session_state.raw_data = st.session_state.raw_data[:100]
+                    
+                    st.session_state.raw_stats['unique_cards'].add(value.get('card_id'))
+                    st.session_state.raw_stats['count'] += 1
+                    st.session_state.raw_stats['total_amount'] += value.get('amount', 0.0)
+                    if value.get('is_anomaly', False):
+                        st.session_state.raw_stats['anomaly_count'] += 1
+                    else:
+                        st.session_state.raw_stats['normal_count'] += 1
+                    
+                    has_new_raw_data = True
+
         except Exception as e:
             print(f"Message parsing error: {e}")
 
@@ -112,7 +142,7 @@ while True:
         last_db_refresh = time.time()
 
     if has_new_data or force_update or db_refreshed:
-        with placeholder.container():
+        with placeholder_alarms.container():
             # --- Metryki z potoku streamz ---
             col_a, col_b, col_c = st.columns(3)
             col_a.metric("Wykryte anomalie (łącznie)", int(sum(agg.by_type.values())))
@@ -173,6 +203,30 @@ while True:
             else:
                 st.info("Baza pusta lub niedostępna.")
 
-        force_update = False
+    if has_new_raw_data or force_update:
+        with placeholder_raw.container():
+            st.subheader("📡 Raw Transactions Monitor")
+            st.markdown("Monitor the generator's health and statistics.")
+            
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Processed Trx", st.session_state.raw_stats['count'])
+            c2.metric("Unique Cards", len(st.session_state.raw_stats['unique_cards']))
+            c3.metric("Normal Trx", st.session_state.raw_stats['normal_count'])
+            c4.metric("Anomalies Generated", st.session_state.raw_stats['anomaly_count'])
+            
+            avg_amount = 0
+            if st.session_state.raw_stats['count'] > 0:
+                avg_amount = st.session_state.raw_stats['total_amount'] / st.session_state.raw_stats['count']
+            
+            st.metric("Average Transaction Amount", f"{avg_amount:.2f}")
+            
+            st.markdown("---")
+            st.subheader("Latest Raw Transactions")
+            if st.session_state.raw_data:
+                raw_df = pd.json_normalize(st.session_state.raw_data)
+                st.dataframe(raw_df.astype(str), width='stretch', height=400)
+            else:
+                st.info("Waiting for raw transactions...")
 
+    force_update = False
     time.sleep(0.1)

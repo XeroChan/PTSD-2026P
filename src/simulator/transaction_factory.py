@@ -12,7 +12,7 @@ class TransactionFactory:
         
         amount = round(random.uniform(5, card.limit * 0.2), 2)
         
-        return self._build_transaction(card, Location(lat, lon), amount)
+        return self._build_transaction(card, Location(lat, lon), amount, is_anomaly=False, anomaly_type="NONE")
 
     def create_location_anomaly(self, card: Card) -> Transaction:
         """Simulates a transaction on another continent (GPS jump)."""
@@ -22,7 +22,7 @@ class TransactionFactory:
             lon -= 360
             
         amount = round(random.uniform(5, card.limit * 0.2), 2)
-        return self._build_transaction(card, Location(lat, lon), amount)
+        return self._build_transaction(card, Location(lat, lon), amount, is_anomaly=True, anomaly_type="LOCATION")
 
     def create_amount_anomaly(self, card: Card) -> Transaction:
         """Simulates a transaction exceeding the spending limit."""
@@ -30,7 +30,7 @@ class TransactionFactory:
         lon = card.home_location.longitude + random.uniform(-0.1, 0.1)
 
         amount = round(card.limit * random.uniform(1.1, 2.0), 2)
-        return self._build_transaction(card, Location(lat, lon), amount)
+        return self._build_transaction(card, Location(lat, lon), amount, is_anomaly=True, anomaly_type="AMOUNT > LIMIT")
 
     def create_amount_spike_anomaly(self, card: Card) -> Transaction:
         """Nagły, duży skok kwoty - ale wciąż PONIŻEJ limitu.
@@ -40,14 +40,16 @@ class TransactionFactory:
         lon = card.home_location.longitude + random.uniform(-0.1, 0.1)
 
         amount = round(card.limit * random.uniform(0.5, 0.95), 2)
-        return self._build_transaction(card, Location(lat, lon), amount)
+        return self._build_transaction(card, Location(lat, lon), amount, is_anomaly=True, anomaly_type="AMOUNT SPIKE")
 
-    def _build_transaction(self, card: Card, location: Location, amount: float) -> Transaction:
+    def _build_transaction(self, card: Card, location: Location, amount: float, is_anomaly: bool = False, anomaly_type: str = "NONE") -> Transaction:
         return Transaction(
             card_id=card.id,
             user_id=card.user_id,
             location=location,
             amount=amount,
             available_limit=card.limit,
-            timestamp_iso=datetime.now(timezone.utc).isoformat()
+            timestamp_iso=datetime.now(timezone.utc).isoformat(),
+            is_anomaly=is_anomaly,
+            anomaly_type=anomaly_type
         )
