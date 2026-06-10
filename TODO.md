@@ -26,5 +26,4 @@
 <!-- TODO: Dodać dokumentację uruchomienia. -->
 - [ ] (opcjonalnie) Bufor per typ dla tabel live na dashboardzie, żeby burst jednego typu nie wypychał innych z okna 100.
 <!-- TODO: Bufor per typ dla tabel live na dashboardzie. -->
-- [ ] (opcjonalnie) Usunąć przestarzałe `version: '3.8'` z `docker-compose.yaml`.
-<!-- TODO: Usunąć przestarzałe `version: '3.8'` z `docker-compose.yaml`. -->
+- [x] (opcjonalnie) Usunąć przestarzałe `version: '3.8'` z `docker-compose.yaml`.
