@@ -14,82 +14,16 @@ st.set_page_config(page_title="Fraud Detection", page_icon="🚨", layout="wide"
 st.title("🚨 Live Fraud Detection Dashboard")
 st.markdown("Real-time anomaly monitoring system. Data source: **Apache Flink**, aggregation: **streamz**.")
 
-if 'alarms_data' not in st.session_state:
-    st.session_state.alarms_data = []
-if 'raw_stats' not in st.session_state:
-    st.session_state.raw_stats = {
-        'unique_cards': set(),
-        'normal_count': 0,
-        'anomaly_count': 0,
-        'total_amount': 0.0,
-        'count': 0
-    }
-if 'raw_data' not in st.session_state:
-    st.session_state.raw_data = []
+if 'alarms_by_type' not in st.session_state:
+    st.session_state.alarms_by_type = {}
 
-@st.cache_resource
-def get_kafka_consumer():
-    max_retries = 10
-    conf = {
-        'bootstrap.servers': KAFKA_BROKER,
-        'group.id': 'streamlit-dashboard-group',
-        'auto.offset.reset': 'latest',
-        'enable.auto.commit': True
-    }
-    for i in range(max_retries):
-        try:
-            print(f"Attempting to connect to Kafka ({KAFKA_BROKER})... attempt {i+1}")
-            consumer = Consumer(conf)
-            consumer.subscribe([TOPIC_ALARMS, TOPIC_RAW])
-            return consumer
-        except Exception as e:
-            print(f"Failed to connect (yet): {e}")
-            time.sleep(5)
-    raise Exception("Failed to connect to Kafka after 10 attempts!")
-
-
-@st.cache_resource
-def get_pipeline():
-    """Buduje potok streamz raz; aktualizuje agregaty w miarę napływu alarmów."""
-    agg = Aggregates()
-    source = build_stream(agg)
-    return source, agg
-
-
-@st.cache_resource
-def get_mongo():
-    return MongoRepository(MONGO_URI, MONGO_DB, MONGO_COLLECTION_ALARMS)
-
-
-try:
-    consumer = get_kafka_consumer()
-except Exception as e:
-    st.error(f"Connection error: {e}")
-    st.stop()
-
-source, agg = get_pipeline()
-mongo = get_mongo()
-
-tab_alarms, tab_raw = st.tabs(["🚨 Alarms", "📊 Raw Transactions"])
-
-placeholder_alarms = tab_alarms.empty()
-placeholder_raw = tab_raw.empty()
-force_update = True
-
-DB_REFRESH_SECONDS = 3
-last_db_refresh = 0.0
-db_history = []
-db_counts = {}
-
-
-def render_alarm_table(df, alarm_type, header, empty_msg):
+def render_alarm_table(alarms_list, header, empty_msg):
     st.subheader(header)
-    if df is not None and alarm_type in df['alarm_type'].values:
-        subset = df[df['alarm_type'] == alarm_type].dropna(axis=1, how='all')
-        st.dataframe(subset.fillna("").astype(str), width='stretch', height=200)
+    if alarms_list:
+        df = pd.json_normalize(alarms_list)
+        st.dataframe(df.fillna("").astype(str), width='stretch', height=200)
     else:
         st.info(empty_msg)
-
 
 while True:
     msg = consumer.poll(timeout=0.5)
@@ -108,8 +42,13 @@ while True:
                 topic = msg.topic()
                 
                 if topic == TOPIC_ALARMS:
-                    st.session_state.alarms_data.insert(0, value)
-                    st.session_state.alarms_data = st.session_state.alarms_data[:100]
+                    alarm_type = value.get('alarm_type', 'UNKNOWN')
+                    if alarm_type not in st.session_state.alarms_by_type:
+                        st.session_state.alarms_by_type[alarm_type] = []
+                    
+                    st.session_state.alarms_by_type[alarm_type].insert(0, value)
+                    st.session_state.alarms_by_type[alarm_type] = st.session_state.alarms_by_type[alarm_type][:20]
+                    
                     # potok streamz: przeliczenie metryk bez petli agregujacej
                     source.emit(value)
                     has_new_data = True
@@ -167,25 +106,24 @@ while True:
             st.markdown("---")
 
             # --- Tabele szczegółowe (ostatnie rekordy) ---
-            if st.session_state.alarms_data:
-                df = pd.json_normalize(st.session_state.alarms_data)
-                render_alarm_table(df, 'AMOUNT_LIMIT_EXCEEDED',
+            if st.session_state.alarms_by_type:
+                render_alarm_table(st.session_state.alarms_by_type.get('AMOUNT_LIMIT_EXCEEDED', []),
                                    "💰 Fraud: Limit Exceeded",
                                    "No alarms of this type in the current session.")
                 st.markdown("---")
-                render_alarm_table(df, 'AMOUNT_ZSCORE_ANOMALY',
+                render_alarm_table(st.session_state.alarms_by_type.get('AMOUNT_ZSCORE_ANOMALY', []),
                                    "📈 Fraud: Statistical Amount Anomaly (z-score)",
                                    "No alarms of this type in the current session.")
                 st.markdown("---")
-                render_alarm_table(df, 'IMPOSSIBLE_TRAVEL',
+                render_alarm_table(st.session_state.alarms_by_type.get('IMPOSSIBLE_TRAVEL', []),
                                    "🌍 Fraud: Impossible Travel",
                                    "No alarms of this type in the current session.")
                 st.markdown("---")
-                render_alarm_table(df, 'UNUSUAL_LOCATION',
+                render_alarm_table(st.session_state.alarms_by_type.get('UNUSUAL_LOCATION', []),
                                    "📍 Fraud: Unusual Location",
                                    "No alarms of this type in the current session.")
                 st.markdown("---")
-                render_alarm_table(df, 'HIGH_FREQUENCY_TRANSACTIONS',
+                render_alarm_table(st.session_state.alarms_by_type.get('HIGH_FREQUENCY_TRANSACTIONS', []),
                                    "⏱️ Fraud: High Frequency Transactions",
                                    "No alarms of this type in the current session.")
             else:
