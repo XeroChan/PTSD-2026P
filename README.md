@@ -66,3 +66,20 @@ db.alarms.drop(); // Czyszczenie bazy!
 ```
 
 Możesz również podłączyć lokalne GUI (np. MongoDB Compass) na port `localhost:27017` z powyższymi zapytaniami.
+
+### Zatrzymywanie i Czyszczenie Środowiska
+
+Gdy chcesz zakończyć pracę i zatrzymać wszystkie kontenery bez usuwania zachowanych danych (np. historii alarmów w bazie):
+
+```bash
+docker compose down
+```
+
+**Całkowite usunięcie środowiska (Hard Reset)**
+Domyślnie MongoDB zapisuje dane na nazwanym wolumenie Dockera (`mongo_data`), aby przetrwały restarty kontenerów. Jeśli chcesz całkowicie wyczyścić środowisko (usunąć kontenery, sieci oraz wszystkie zapisane dane w bazie, by następnym razem wystartować od zera), dodaj flagę `-v`:
+
+```bash
+docker compose down -v
+```
+
+> **Uwaga**: Flaga `-v` usunie wolumen `mongo_data` (fizycznie zlokalizowany w katalogach zarządzanych przez silnik Dockera na Twoim komputerze). Po tym poleceniu nie zostanie żaden ślad po działaniu bazy danych ani strumieniach Kafki w systemie.
