@@ -46,7 +46,7 @@ if 'raw_stats' not in st.session_state:
 
 agg = Aggregates()
 source = build_stream(agg)
-mongo = MongoRepository(MONGO_URI, MONGO_DB)
+mongo = MongoRepository(MONGO_URI, MONGO_DB, MONGO_COLLECTION_ALARMS)
 
 last_db_refresh = 0
 DB_REFRESH_SECONDS = 5
