@@ -33,6 +33,7 @@ services:
     environment:
       - JOB_MANAGER_RPC_ADDRESS=jobmanager
       - PYTHONPATH=/app
+      - KAFKA_BROKER=kafka:29092
     volumes:
       - .:/app
     networks:
@@ -49,6 +50,7 @@ services:
       - JOB_MANAGER_RPC_ADDRESS=jobmanager
       - TASK_MANAGER_NUMBER_OF_TASK_SLOTS=4
       - PYTHONPATH=/app
+      - KAFKA_BROKER=kafka:29092
     volumes:
       - .:/app
     networks:
@@ -61,6 +63,9 @@ services:
     depends_on:
       - kafka
     command: python -m src.simulator.runner
+    environment:
+      - PYTHONPATH=/app
+      - KAFKA_BROKER=kafka:29092
     networks:
       - anomaly_net
 
