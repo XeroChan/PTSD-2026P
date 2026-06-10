@@ -47,6 +47,7 @@ services:
       - anomaly_net
 
   jobmanager:
+    image: ptsd-2026p-flink:1.17
     build:
       context: .
       dockerfile: Dockerfile.flink
@@ -63,6 +64,7 @@ services:
       - anomaly_net
 
   taskmanager:
+    image: ptsd-2026p-flink:1.17
     build:
       context: .
       dockerfile: Dockerfile.flink
@@ -80,6 +82,7 @@ services:
       - anomaly_net
 
   flink-job-submitter:
+    image: ptsd-2026p-flink:1.17
     build:
       context: .
       dockerfile: Dockerfile.flink
@@ -110,6 +113,7 @@ services:
       - anomaly_net
 
   simulator:
+    image: ptsd-2026p-app:1.0
     build:
       context: .
       dockerfile: Dockerfile.app
@@ -123,6 +127,7 @@ services:
       - anomaly_net
 
   dashboard:
+    image: ptsd-2026p-app:1.0
     build:
       context: .
       dockerfile: Dockerfile.app
@@ -140,6 +145,7 @@ services:
       - anomaly_net
 
   alarm_store:
+    image: ptsd-2026p-app:1.0
     build:
       context: .
       dockerfile: Dockerfile.app
