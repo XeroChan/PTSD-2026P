@@ -16,6 +16,7 @@ from src.config.settings import KAFKA_BROKER, TOPIC_RAW, TOPIC_ALARMS, FLINK_GRO
 from src.flink_pipeline.detectors.limit_detector import LimitAnomalyDetector
 from src.flink_pipeline.detectors.location_detector import LocationAnomalyDetector
 from src.flink_pipeline.detectors.amount_stats_detector import AmountStatsAnomalyDetector
+from src.flink_pipeline.detectors.frequency_detector import FrequencyAnomalyDetector
 
 JARS = [
     "/app/jars/flink-connector-kafka-1.17.0.jar",
@@ -28,7 +29,7 @@ DETECTOR_PARALLELISM = 4
 
 class FraudDetectionPipeline:
     """
-    Buduje topologię Flinka: źródło Kafki -> trzy detektory anomalii ->
+    Buduje topologię Flinka: źródło Kafki -> detektory anomalii ->
     połączony, uporządkowany sink alarmów.
 
     Oddziela konstrukcję potoku od jego uruchomienia (to robi job.py).
@@ -83,8 +84,12 @@ class FraudDetectionPipeline:
             .process(AmountStatsAnomalyDetector(), output_type=Types.STRING()) \
             .name("Amount Z-Score Detector")
 
+        frequency_alarms = keyed_stream \
+            .process(FrequencyAnomalyDetector(), output_type=Types.STRING()) \
+            .name("Frequency Anomaly Detector")
+
         # Wszystkie alarmy w jeden strumień -> jeden uporządkowany sink.
-        return limit_alarms.union(location_alarms, amount_stats_alarms)
+        return limit_alarms.union(location_alarms, amount_stats_alarms, frequency_alarms)
 
     def _build_sink(self, alarms) -> None:
         kafka_sink = KafkaSink.builder() \

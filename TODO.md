@@ -17,8 +17,7 @@
 - [x] Rozbudować dashboard o lepszą wizualizację. (`src/ui/dashboard.py` + `aggregations.py`: agregaty streamz — kwota zagrożona, alarmy wg typu, max z-score; tabele per typ; pełna historia z MongoDB)
 - [x] Automatyczne zgłaszanie joba Flink przy starcie (teraz ręcznie: `flink run -d -py /app/src/flink_pipeline/job.py`).
 - [x] Automatyczne tworzenie topiców Kafki przy starcie; przy okazji `raw_transactions` z kilkoma partycjami, żeby zrównoleglić też odczyt ze źródła.
-- [ ] Dodać anomalię częstotliwości transakcji (zbyt wiele transakcji w krótkim czasie) jako kolejny typ.
-<!-- TODO: Dodanie anomalii częstotliwości transakcji. -->
+- [x] Dodać anomalię częstotliwości transakcji (zbyt wiele transakcji w krótkim czasie) jako kolejny typ.
 - [ ] Dokumentacja uruchomienia (README): host vs kontenery, porty (8501 dashboard, 8081 Flink, 9092 Kafka, 27017 Mongo), co startuje w Dockerze, jak zgłosić job, jak podejrzeć/wyczyścić Mongo.
 <!-- TODO: Dodać dokumentację uruchomienia. -->
 - [ ] (opcjonalnie) Bufor per typ dla tabel live na dashboardzie, żeby burst jednego typu nie wypychał innych z okna 100.

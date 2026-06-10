@@ -184,6 +184,10 @@ while True:
                 render_alarm_table(df, 'UNUSUAL_LOCATION',
                                    "📍 Fraud: Unusual Location",
                                    "No alarms of this type in the current session.")
+                st.markdown("---")
+                render_alarm_table(df, 'HIGH_FREQUENCY_TRANSACTIONS',
+                                   "⏱️ Fraud: High Frequency Transactions",
+                                   "No alarms of this type in the current session.")
             else:
                 st.info("Listening in real-time... Waiting for frauds. 🕵️‍♂️")
 
