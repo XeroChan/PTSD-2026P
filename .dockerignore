@@ -1,0 +1,11 @@
+venv/
+.env
+.git/
+.github/
+__pycache__/
+*.pyc
+.pytest_cache/
+mongo_data/
+docker-compose.yaml
+README.md
+TODO.md

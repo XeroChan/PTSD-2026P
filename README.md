@@ -7,7 +7,9 @@ Projekt implementuje system wykrywania anomalii i oszustw w transakcjach kartowy
 Wszystkie komponenty systemu zostały spakowane do kontenerów Docker, co ułatwia i ujednolica uruchomienie.
 
 ### Co startuje w Dockerze?
+
 Po uruchomieniu `docker-compose up -d`, startują następujące usługi:
+
 - **Zookeeper & Kafka**: Brokery wiadomości (odpowiednio dla koordynacji i strumieniowania). Uruchamiają się z automatycznym skryptem `kafka-setup`, który tworzy niezbędne tematy (np. `raw_transactions`, `alarms`).
 - **MongoDB**: Baza danych noSQL służąca do persystencji wykrytych alarmów.
 - **Apache Flink (JobManager & TaskManager)**: Silnik przetwarzania strumieniowego.
@@ -22,10 +24,12 @@ Po uruchomieniu `docker-compose up -d`, startują następujące usługi:
 docker compose build
 docker compose up -d
 ```
+
 Job Flinka zostanie zgłoszony automatycznie!
 
 **Ręczne zgłoszenie joba Flink (jeśli potrzebne):**
 Jeśli musisz zrestartować job Flinka bez restartowania całego środowiska, wykonaj:
+
 ```bash
 docker compose exec jobmanager flink run -d -py /app/src/flink_pipeline/job.py
 ```
@@ -40,6 +44,7 @@ Wszystkie usługi komunikują się wewnątrz wirtualnej sieci Dockera (`anomaly_
 - **MongoDB**: `localhost:27017` - Lokalny dostęp do bazy z hosta.
 
 Dzięki zmiennym środowiskowym (`KAFKA_BROKER`, `MONGO_URI`), aplikacje Python mogą działać zarówno w kontenerze, jak i na hoście, np:
+
 ```bash
 export KAFKA_BROKER=localhost:9092
 export MONGO_URI=mongodb://localhost:27017
@@ -59,4 +64,5 @@ db.alarms.find().pretty(); // Podgląd alarmów
 db.alarms.countDocuments(); // Zliczenie
 db.alarms.drop(); // Czyszczenie bazy!
 ```
+
 Możesz również podłączyć lokalne GUI (np. MongoDB Compass) na port `localhost:27017` z powyższymi zapytaniami.

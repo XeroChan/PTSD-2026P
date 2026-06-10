@@ -12,6 +12,7 @@
 - [x] Pamięć częstych lokalizacji w detektorze. (`location_detector.py` — zliczanie wizyt + alarm UNUSUAL_LOCATION)
 - [x] Podłączyć MongoDB do realnego zapisu alarmów. (`src/persistence/alarm_store.py` + `src/infrastructure/mongo_repository.py`, usługa `mongo` w compose) + odczyt historii na dashboardzie.
 - [x] Dodać co najmniej jeszcze jedną anomalię poza skokiem kwoty. Mamy: niemożliwa podróż (prędkość), nietypowa lokalizacja, skok kwoty pod limitem, przekroczenie limitu, anomalia statystyczna z-score.
+
 ## Nice-to-have
 
 - [x] Rozbudować dashboard o lepszą wizualizację. (`src/ui/dashboard.py` + `aggregations.py`: agregaty streamz — kwota zagrożona, alarmy wg typu, max z-score; tabele per typ; pełna historia z MongoDB)
