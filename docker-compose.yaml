@@ -23,6 +23,15 @@ services:
     networks:
       - anomaly_net
 
+  mongo:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - anomaly_net
+
   jobmanager:
     build:
       context: .
@@ -84,6 +93,24 @@ services:
     networks:
       - anomaly_net
 
+  alarm_store:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    depends_on:
+      - kafka
+      - mongo
+    command: python -m src.persistence.alarm_store
+    environment:
+      - PYTHONPATH=/app
+      - KAFKA_BROKER=kafka:29092
+      - MONGO_URI=mongodb://mongo:27017
+    networks:
+      - anomaly_net
+
 networks:
   anomaly_net:
     driver: bridge
+
+volumes:
+  mongo_data:
