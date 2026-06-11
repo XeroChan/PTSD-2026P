@@ -11,20 +11,8 @@ MIN_VISITS_FREQUENT = 3           # ile wizyt, by lokalizacja stała się "częs
 MAX_KNOWN_LOCATIONS = 10          # limit zapamiętanych lokalizacji per karta
 
 
+# Dwa sygnały: IMPOSSIBLE_TRAVEL (sama prędkość) i UNUSUAL_LOCATION (z pamięci częstych lokalizacji)
 class LocationAnomalyDetector(KeyedProcessFunction):
-    """
-    Dwa niezależne sygnały lokalizacyjne dla karty, oparte na pamięci stanu Flinka:
-
-    1. IMPOSSIBLE_TRAVEL - czysto prędkościowy. Jeśli prędkość między poprzednią
-       a bieżącą transakcją przekracza MAX_SPEED_KMH, to fizyczna niemożliwość -
-       alarm leci ZAWSZE, niezależnie od tego, czy miejsce jest znane.
-
-    2. UNUSUAL_LOCATION - korzysta z pamięci CZĘSTYCH lokalizacji karty. Jeśli karta
-       ma już ustalony "obszar bywania" (lokalizacje odwiedzone >= MIN_VISITS_FREQUENT
-       razy), a bieżąca transakcja jest daleko od wszystkich z nich - alarm.
-       Lokalizacja przestaje być nietypowa dopiero, gdy stanie się częsta.
-    """
-
     def __init__(self):
         self.last_tx_state = None
         self.known_locations_state = None
@@ -44,7 +32,7 @@ class LocationAnomalyDetector(KeyedProcessFunction):
         known_str = self.known_locations_state.value()
         known = json.loads(known_str) if known_str else []
 
-        # 1. IMPOSSIBLE TRAVEL - wyłącznie prędkość
+        # IMPOSSIBLE TRAVEL - wyłącznie prędkość
         if last_tx_str:
             last_tx = json.loads(last_tx_str)
             speed = calculate_speed_kmh(
@@ -68,7 +56,7 @@ class LocationAnomalyDetector(KeyedProcessFunction):
                 )
                 yield json.dumps(alarm.to_dict())
 
-        # 2. UNUSUAL LOCATION - daleko od wszystkich CZĘSTYCH lokalizacji karty
+        # UNUSUAL LOCATION - daleko od wszystkich częstych lokalizacji karty
         frequent = [loc for loc in known if loc['count'] >= MIN_VISITS_FREQUENT]
         if frequent:
             near_frequent = any(
@@ -89,7 +77,7 @@ class LocationAnomalyDetector(KeyedProcessFunction):
                 )
                 yield json.dumps(alarm.to_dict())
 
-        # 3. Aktualizacja pamięci częstych lokalizacji (zliczanie wizyt)
+        # Aktualizacja pamięci częstych lokalizacji (zliczanie wizyt)
         matched = None
         for loc in known:
             if haversine_distance(current_loc['lat'], current_loc['lon'], loc['lat'], loc['lon']) <= KNOWN_LOCATION_RADIUS_KM:
@@ -104,5 +92,5 @@ class LocationAnomalyDetector(KeyedProcessFunction):
                 known = known[1:]   # usuń najrzadziej odwiedzaną
         self.known_locations_state.update(json.dumps(known))
 
-        # 4. Aktualizacja ostatniej transakcji
+        # Aktualizacja ostatniej transakcji
         self.last_tx_state.update(json.dumps(current_tx))

@@ -5,26 +5,16 @@ from pyflink.datastream.functions import KeyedProcessFunction, RuntimeContext
 from pyflink.datastream.state import ValueStateDescriptor
 from src.domain.alarm import Alarm
 
-# Ile ostatnich kwot karty trzymamy w oknie.
+# Ile ostatnich kwot karty trzymamy w oknie
 WINDOW_SIZE = 30
-# Ile kwot w oknie potrzeba, zanim zaczniemy oceniać (rozgrzewka).
+# Ile kwot w oknie potrzeba, zanim zaczniemy oceniać
 MIN_SAMPLES = 12
-# Ile odchyleń standardowych od średniej traktujemy jako anomalię.
+# Ile odchyleń standardowych od średniej traktujemy jako anomalię
 Z_SCORE_THRESHOLD = 4.0
 
 
+# z-score kwoty z okna ostatnich WINDOW_SIZE transakcji karty (okno zapomina stare dane)
 class AmountStatsAnomalyDetector(KeyedProcessFunction):
-    """
-    Wykrywa nagłą zmianę wartości transakcji metodą z-score liczonego z OKNA
-    ostatnich N transakcji karty (sliding window).
-
-    Dla każdej karty trzymamy w stanie listę ostatnich WINDOW_SIZE kwot. Średnia
-    i odchylenie standardowe liczone są z tego okna, więc detektor naturalnie
-    "zapomina" stare dane (okno się przesuwa) i nie traci czułości w czasie.
-    Intuicja jest prosta: "jak bardzo ta kwota odstaje od ostatnich N transakcji
-    tej karty".
-    """
-
     def __init__(self):
         self.window_state = None
 
@@ -39,7 +29,7 @@ class AmountStatsAnomalyDetector(KeyedProcessFunction):
         state_str = self.window_state.value()
         window = json.loads(state_str) if state_str else []
 
-        # Ocena PRZED dodaniem bieżącej kwoty - porównujemy ją do ostatnich N.
+        # Ocena przed dodaniem bieżącej kwoty - porównujemy ją do ostatnich N
         if len(window) >= MIN_SAMPLES:
             mean = sum(window) / len(window)
             variance = sum((x - mean) ** 2 for x in window) / (len(window) - 1)
@@ -61,7 +51,7 @@ class AmountStatsAnomalyDetector(KeyedProcessFunction):
                     )
                     yield json.dumps(alarm.to_dict())
 
-        # Aktualizacja okna: dodaj bieżącą kwotę i utnij do WINDOW_SIZE ostatnich.
+        # Aktualizacja okna: dodaj bieżącą kwotę i utnij do WINDOW_SIZE ostatnich
         window.append(amount)
         if len(window) > WINDOW_SIZE:
             window = window[-WINDOW_SIZE:]

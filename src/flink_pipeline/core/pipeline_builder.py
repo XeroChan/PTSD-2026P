@@ -23,18 +23,12 @@ JARS = [
     "/app/jars/kafka-clients-3.2.3.jar",
 ]
 
-# Równoległość detektorów (rozkładają się na sloty TaskManagera).
+# Równoległość detektorów (rozkładają się na sloty TaskManagera)
 DETECTOR_PARALLELISM = 4
 
 
+# Budowa topologii Flinka: źródło Kafki, 4 detektory,  jeden sink alarmów
 class FraudDetectionPipeline:
-    """
-    Buduje topologię Flinka: źródło Kafki -> detektory anomalii ->
-    połączony, uporządkowany sink alarmów.
-
-    Oddziela konstrukcję potoku od jego uruchomienia (to robi job.py).
-    """
-
     def __init__(self, env: StreamExecutionEnvironment):
         self.env = env
 
@@ -88,7 +82,7 @@ class FraudDetectionPipeline:
             .process(FrequencyAnomalyDetector(), output_type=Types.STRING()) \
             .name("Frequency Anomaly Detector")
 
-        # Wszystkie alarmy w jeden strumień -> jeden uporządkowany sink.
+        # Wszystkie alarmy w jeden strumień, jeden uporządkowany sink
         return limit_alarms.union(location_alarms, amount_stats_alarms, frequency_alarms)
 
     def _build_sink(self, alarms) -> None:
@@ -102,5 +96,5 @@ class FraudDetectionPipeline:
             ) \
             .build()
 
-        # Równoległość 1 dla uporządkowanego, przeplatanego wyjścia.
+        # Równoległość 1 dla uporządkowanego, przeplatanego wyjścia
         alarms.sink_to(kafka_sink).name("Kafka Sink - Alarms").set_parallelism(1)

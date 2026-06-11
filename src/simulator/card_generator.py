@@ -4,8 +4,8 @@ from faker import Faker
 from src.domain.location import Location
 from src.domain.card import Card
 
-# Część kart jest "gorąca" - używana znacznie częściej. To realistyczne
-# (rozkład użycia kart jest mocno nierównomierny) i sprawia, że detektor
+# Część kart jest używana znacznie częściej
+# rozkład użycia kart jest mocno nierównomierny i sprawia, że detektor
 # statystyczny zdąży zebrać historię transakcji potrzebną do oceny z-score.
 HOT_CARDS_COUNT = 100
 HOT_CARDS_PROBABILITY = 0.9

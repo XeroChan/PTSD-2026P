@@ -5,8 +5,8 @@ from src.domain.location import Location
 from src.domain.transaction import Transaction
 
 class TransactionFactory:
+    # Zwykła transakcja blisko domu karty
     def create_normal_transaction(self, card: Card) -> Transaction:
-        """Creates a standard transaction close to the card's home location."""
         lat = card.home_location.latitude + random.uniform(-0.1, 0.1)
         lon = card.home_location.longitude + random.uniform(-0.1, 0.1)
         
@@ -14,8 +14,8 @@ class TransactionFactory:
         
         return self._build_transaction(card, Location(lat, lon), amount, is_anomaly=False, anomaly_type="NONE")
 
+    # Skok GPS na drugi koniec świata
     def create_location_anomaly(self, card: Card) -> Transaction:
-        """Simulates a transaction on another continent (GPS jump)."""
         lat = -card.home_location.latitude if card.home_location.latitude != 0 else 50.0
         lon = card.home_location.longitude + 90.0
         if lon > 180:
@@ -24,18 +24,16 @@ class TransactionFactory:
         amount = round(random.uniform(5, card.limit * 0.2), 2)
         return self._build_transaction(card, Location(lat, lon), amount, is_anomaly=True, anomaly_type="LOCATION")
 
+    # Kwota powyżej limitu karty
     def create_amount_anomaly(self, card: Card) -> Transaction:
-        """Simulates a transaction exceeding the spending limit."""
         lat = card.home_location.latitude + random.uniform(-0.1, 0.1)
         lon = card.home_location.longitude + random.uniform(-0.1, 0.1)
 
         amount = round(card.limit * random.uniform(1.1, 2.0), 2)
         return self._build_transaction(card, Location(lat, lon), amount, is_anomaly=True, anomaly_type="AMOUNT > LIMIT")
 
+    # Skok kwoty wciąż poniżej limitu - łapie go detektor z-score
     def create_amount_spike_anomaly(self, card: Card) -> Transaction:
-        """Nagły, duży skok kwoty - ale wciąż PONIŻEJ limitu.
-        Detektor limitu tego nie wykryje; detektor statystyczny (z-score) tak,
-        bo kwota mocno odstaje od typowych transakcji tej karty."""
         lat = card.home_location.latitude + random.uniform(-0.1, 0.1)
         lon = card.home_location.longitude + random.uniform(-0.1, 0.1)
 

@@ -1,6 +1,7 @@
 import json
 from pyflink.datastream.functions import ProcessFunction
 
+# Bezstanowy: alarm gdy kwota transakcji przekracza limit karty
 class LimitAnomalyDetector(ProcessFunction):
     def process_element(self, value: str, ctx: 'ProcessFunction.Context'):
         transaction = json.loads(value)

@@ -15,6 +15,7 @@ class KafkaPublisher:
                 value=json_data,
                 callback=self._delivery_report
             )
+            # poll(0) wyzwala callbacki dostarczenia bez blokowania
             self.producer.poll(0)
         except Exception as e:
             print(f"Błąd wysyłania do Kafki: {e}")

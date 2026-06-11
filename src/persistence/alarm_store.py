@@ -10,12 +10,8 @@ from src.config.settings import (
 from src.infrastructure.mongo_repository import MongoRepository
 
 
+# Drugi konsument Kafki (obok dashboardu): zapisuje alarmy z topiku do MongoDB
 class AlarmStore:
-    """
-    Drugi konsument Kafki (obok dashboardu): czyta topik z alarmami
-    i trwale zapisuje każdy alarm do MongoDB.
-    """
-
     def __init__(self):
         self.consumer = Consumer({
             'bootstrap.servers': KAFKA_BROKER,

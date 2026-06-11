@@ -8,10 +8,8 @@ from src.domain.alarm import Alarm
 TIME_WINDOW_SECONDS = 10.0
 MAX_TRANSACTIONS = 4
 
+# Alarm gdy karta wykona za dużo transakcji w krótkim oknie czasowym
 class FrequencyAnomalyDetector(KeyedProcessFunction):
-    """
-    Wykrywa zbyt częste transakcje dla danej karty w krótkim oknie czasowym.
-    """
     def __init__(self):
         self.timestamps_state = None
 

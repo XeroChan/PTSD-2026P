@@ -1,8 +1,8 @@
 import math
 from datetime import datetime
 
+# Odległość w linii prostej między dwoma punktami GPS w km
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calculates the straight-line distance between two GPS points in kilometers."""
     lon1, lat1, lon2, lat2 = map(math.radians, [lon1, lat1, lon2, lat2])
     dlon = lon2 - lon1
     dlat = lat2 - lat1
@@ -11,8 +11,8 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     r = 6371.0
     return c * r
 
+# Prędkość w km/h między dwoma punktami czasoprzestrzennymi
 def calculate_speed_kmh(time1_iso: str, lat1: float, lon1: float, time2_iso: str, lat2: float, lon2: float) -> float:
-    """Returns the speed in km/h based on two points in time and space."""
     try:
         t1 = datetime.fromisoformat(time1_iso.replace('Z', '+00:00'))
         t2 = datetime.fromisoformat(time2_iso.replace('Z', '+00:00'))

@@ -35,7 +35,7 @@ class SimulatorRunner:
             while True:
                 card = self.generator.get_random_card()
                 
-                # Czasami generuj serię transakcji dla tej samej karty (High Frequency Anomaly)
+                # Czasami generuj serię transakcji dla tej samej karty
                 if random.random() < 0.005:
                     print(f"Anomaly [HIGH FREQUENCY] burst generated for {card.id}")
                     for _ in range(5):

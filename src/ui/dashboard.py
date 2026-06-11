@@ -91,7 +91,7 @@ while True:
     has_new_data = False
     has_new_raw_data = False
 
-    # Wypij wszystkie dostępne wiadomości w tym ticku (nie jedną na render),
+    # Wypij wszystkie dostępne wiadomości w tym ticku
     # żeby konsument nie odstawał od produkcji i liczniki sesji były wiarygodne.
     msg = consumer.poll(timeout=0.5)
     processed = 0
@@ -147,7 +147,7 @@ while True:
 
     if has_new_data or force_update or db_refreshed:
         with ph_overview.container():
-            # --- Metryki z potoku streamz ---
+            # Metryki z potoku streamz ---
             col_a, col_b, col_c = st.columns(3)
             col_a.metric("Wykryte anomalie (sesja)", int(sum(agg.by_type.values())))
             col_b.metric("Kwota zagrożona", f"${agg.money_at_risk:,.2f}")
@@ -155,7 +155,7 @@ while True:
 
             st.markdown("---")
 
-            # --- Licznik alarmów wg typu (z potoku) ---
+            # Licznik alarmów wg typu
             st.subheader("📊 Alarmy wg typu")
             if agg.by_type:
                 type_df = pd.DataFrame(
@@ -169,7 +169,7 @@ while True:
                 st.info("Brak alarmów w tej sesji.")
 
         with ph_alerts.container():
-            # --- Tabele szczegółowe (ostatnie rekordy) ---
+            # Tabele szczegółowe
             if st.session_state.alarms_by_type:
                 with st.expander("💰 Fraud: Limit Exceeded", expanded=True):
                     render_alarm_table(st.session_state.alarms_by_type.get('AMOUNT_LIMIT_EXCEEDED', []),
@@ -194,7 +194,7 @@ while True:
                 st.info("Listening in real-time... Waiting for frauds. 🕵️‍♂️")
 
         with ph_db.container():
-            # --- Pełna historia z MongoDB (wszystkie sesje, nie tylko bieżąca) ---
+            # Pełna historia z MongoDB (wszystkie sesje, nie tylko bieżąca)
             st.subheader("🗄️ Pełna historia alarmów (MongoDB)")
             
             c1, c2 = st.columns([1, 3])
@@ -216,7 +216,7 @@ while True:
 
     if has_new_raw_data or force_update:
         with ph_raw.container():
-            # --- Raw Data Monitor ---
+            # Raw Data Monitor ---
             st.subheader("📡 Raw Transactions Monitor")
             st.markdown("Monitor the generator's health and statistics.")
             
