@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import json
 import time
-from collections import Counter
 from confluent_kafka import Consumer
 from src.config.settings import (
     KAFKA_BROKER, TOPIC_ALARMS, TOPIC_RAW,
@@ -29,46 +28,10 @@ if 'alarms_by_type' not in st.session_state:
     st.session_state.alarms_by_type = {}
 
 
-def alarm_amount_at_risk(alarm: dict) -> float:
-    details = alarm.get('details', {})
-    value = details.get('attempted_amount')
-    if value is None:
-        value = details.get('amount')
-    try:
-        return float(value) if value is not None else 0.0
-    except (TypeError, ValueError):
-        return 0.0
-
-
-def alarm_abs_zscore(alarm: dict) -> float:
-    if alarm.get('alarm_type') != 'AMOUNT_ZSCORE_ANOMALY':
-        return 0.0
-    details = alarm.get('details', {})
-    try:
-        return abs(float(details.get('z_score', 0.0)))
-    except (TypeError, ValueError):
-        return 0.0
-
-
-def sync_dashboard_from_history(history, counts) -> None:
-    grouped = {}
-    for alarm in history:
-        alarm_type = alarm.get('alarm_type', 'UNKNOWN')
-        grouped.setdefault(alarm_type, []).append(alarm)
-
-    st.session_state.alarms_by_type = {
-        alarm_type: alarms[:20]
-        for alarm_type, alarms in grouped.items()
-    }
-
-    agg.set_by_type(Counter(counts))
-    agg.set_money(sum(alarm_amount_at_risk(alarm) for alarm in history))
-    agg.set_max_zscore(max((alarm_abs_zscore(alarm) for alarm in history), default=0.0))
-
 def render_alarm_table(alarms_list, empty_msg):
     if alarms_list:
         df = pd.json_normalize(alarms_list)
-        st.dataframe(df.fillna("").astype(str), use_container_width=True, height=200)
+        st.dataframe(df.fillna("").astype(str), width='stretch', height=200)
     else:
         st.info(empty_msg)
 
@@ -104,7 +67,6 @@ force_update = True
 try:
     db_history = mongo.find_recent(limit=200)
     db_counts = mongo.count_by_type()
-    sync_dashboard_from_history(db_history, db_counts)
 except Exception as e:
     print(f"Mongo bootstrap error: {e}")
 
@@ -126,48 +88,51 @@ with tab_db:
     ph_db = st.empty()
 
 while True:
-    msg = consumer.poll(timeout=0.5)
     has_new_data = False
     has_new_raw_data = False
 
-    if msg is None:
-        pass
-    elif msg.error():
-        print(f"Consumer error: {msg.error()}")
-    else:
-        try:
-            payload = msg.value()
-            if payload is not None:
-                value = json.loads(payload.decode('utf-8'))
-                topic = msg.topic()
-                
-                if topic == TOPIC_ALARMS:
-                    alarm_type = value.get('alarm_type', 'UNKNOWN')
-                    if alarm_type not in st.session_state.alarms_by_type:
-                        st.session_state.alarms_by_type[alarm_type] = []
-                    
-                    st.session_state.alarms_by_type[alarm_type].insert(0, value)
-                    st.session_state.alarms_by_type[alarm_type] = st.session_state.alarms_by_type[alarm_type][:20]
-                    
-                    # potok streamz: przeliczenie metryk bez petli agregujacej
-                    source.emit(value)
-                    has_new_data = True
-                elif topic == TOPIC_RAW:
-                    st.session_state.raw_data.insert(0, value)
-                    st.session_state.raw_data = st.session_state.raw_data[:100]
-                    
-                    st.session_state.raw_stats['unique_cards'].add(value.get('card_id'))
-                    st.session_state.raw_stats['count'] += 1
-                    st.session_state.raw_stats['total_amount'] += value.get('amount', 0.0)
-                    if value.get('is_anomaly', False):
-                        st.session_state.raw_stats['anomaly_count'] += 1
-                    else:
-                        st.session_state.raw_stats['normal_count'] += 1
-                    
-                    has_new_raw_data = True
+    # Wypij wszystkie dostępne wiadomości w tym ticku (nie jedną na render),
+    # żeby konsument nie odstawał od produkcji i liczniki sesji były wiarygodne.
+    msg = consumer.poll(timeout=0.5)
+    processed = 0
+    while msg is not None and processed < 2000:
+        if msg.error():
+            print(f"Consumer error: {msg.error()}")
+        else:
+            try:
+                payload = msg.value()
+                if payload is not None:
+                    value = json.loads(payload.decode('utf-8'))
+                    topic = msg.topic()
 
-        except Exception as e:
-            print(f"Message parsing error: {e}")
+                    if topic == TOPIC_ALARMS:
+                        alarm_type = value.get('alarm_type', 'UNKNOWN')
+                        if alarm_type not in st.session_state.alarms_by_type:
+                            st.session_state.alarms_by_type[alarm_type] = []
+
+                        st.session_state.alarms_by_type[alarm_type].insert(0, value)
+                        st.session_state.alarms_by_type[alarm_type] = st.session_state.alarms_by_type[alarm_type][:20]
+
+                        # potok streamz: przeliczenie metryk bez petli agregujacej
+                        source.emit(value)
+                        has_new_data = True
+                    elif topic == TOPIC_RAW:
+                        st.session_state.raw_data.insert(0, value)
+                        st.session_state.raw_data = st.session_state.raw_data[:100]
+
+                        st.session_state.raw_stats['unique_cards'].add(value.get('card_id'))
+                        st.session_state.raw_stats['count'] += 1
+                        st.session_state.raw_stats['total_amount'] += value.get('amount', 0.0)
+                        if value.get('is_anomaly', False):
+                            st.session_state.raw_stats['anomaly_count'] += 1
+                        else:
+                            st.session_state.raw_stats['normal_count'] += 1
+
+                        has_new_raw_data = True
+            except Exception as e:
+                print(f"Message parsing error: {e}")
+        processed += 1
+        msg = consumer.poll(timeout=0.0)
 
     # Odświeżanie historii z bazy - co kilka sekund, nie co iterację pętli.
     db_refreshed = False
@@ -175,7 +140,6 @@ while True:
         try:
             db_history = mongo.find_recent(limit=200)
             db_counts = mongo.count_by_type()
-            sync_dashboard_from_history(db_history, db_counts)
             db_refreshed = True
         except Exception as e:
             print(f"Mongo read error: {e}")
@@ -185,7 +149,7 @@ while True:
         with ph_overview.container():
             # --- Metryki z potoku streamz ---
             col_a, col_b, col_c = st.columns(3)
-            col_a.metric("Wykryte anomalie (łącznie)", int(sum(agg.by_type.values())))
+            col_a.metric("Wykryte anomalie (sesja)", int(sum(agg.by_type.values())))
             col_b.metric("Kwota zagrożona", f"${agg.money_at_risk:,.2f}")
             col_c.metric("Maks. z-score", f"{agg.max_zscore:.2f}")
 
@@ -199,8 +163,8 @@ while True:
                     columns=['Alarm Type', 'Count']
                 )
                 col_left, col_right = st.columns([1, 2])
-                col_left.dataframe(type_df, use_container_width=True, hide_index=True)
-                col_right.bar_chart(type_df, x='Alarm Type', y='Count', use_container_width=True)
+                col_left.dataframe(type_df, width='stretch', hide_index=True)
+                col_right.bar_chart(type_df, x='Alarm Type', y='Count', width='stretch')
             else:
                 st.info("Brak alarmów w tej sesji.")
 
@@ -240,13 +204,13 @@ while True:
                     db_counts_df = pd.DataFrame(
                         sorted(db_counts.items()), columns=['Alarm Type', 'Count w bazie']
                     )
-                    st.dataframe(db_counts_df, use_container_width=True, hide_index=True)
+                    st.dataframe(db_counts_df, width='stretch', hide_index=True)
             
             with c2:
                 if db_history:
                     st.caption(f"Ostatnie {len(db_history)} alarmów z bazy:")
                     hist_df = pd.json_normalize(db_history)
-                    st.dataframe(hist_df.fillna("").astype(str), use_container_width=True, height=400)
+                    st.dataframe(hist_df.fillna("").astype(str), width='stretch', height=400)
                 else:
                     st.info("Baza pusta lub niedostępna.")
 
@@ -272,7 +236,7 @@ while True:
             st.subheader("Latest Raw Transactions")
             if st.session_state.raw_data:
                 raw_df = pd.json_normalize(st.session_state.raw_data)
-                st.dataframe(raw_df.astype(str), use_container_width=True, height=400)
+                st.dataframe(raw_df.astype(str), width='stretch', height=400)
             else:
                 st.info("Waiting for raw transactions...")
 

@@ -18,6 +18,7 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
     networks:
       - anomaly_net
 
@@ -87,9 +88,12 @@ services:
       context: .
       dockerfile: Dockerfile.flink
     depends_on:
-      - jobmanager
-      - taskmanager
-      - kafka-setup
+      jobmanager:
+        condition: service_started
+      taskmanager:
+        condition: service_started
+      kafka-setup:
+        condition: service_completed_successfully
     command: >
       bash -c "
         echo 'Waiting for Flink JobManager to be ready...'
@@ -113,7 +117,8 @@ services:
       context: .
       dockerfile: Dockerfile.app
     depends_on:
-      - kafka-setup
+      kafka-setup:
+        condition: service_completed_successfully
     command: python -m src.simulator.runner
     environment:
       - PYTHONPATH=/app
@@ -129,8 +134,10 @@ services:
     ports:
       - "8501:8501"
     depends_on:
-      - kafka-setup
-      - mongo
+      kafka-setup:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_started
     environment:
       - KAFKA_BROKER=kafka:29092
       - PYTHONPATH=/app
@@ -145,8 +152,10 @@ services:
       context: .
       dockerfile: Dockerfile.app
     depends_on:
-      - kafka-setup
-      - mongo
+      kafka-setup:
+        condition: service_completed_successfully
+      mongo:
+        condition: service_started
     command: python -m src.persistence.alarm_store
     environment:
       - PYTHONPATH=/app
